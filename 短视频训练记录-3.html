@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>短视频30天感知训练</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: #080818;
+    color: #e8e8f0;
+    font-family: 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+    max-width: 480px;
+    margin: 0 auto;
+    padding-bottom: 80px;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0d0d2b 0%, #1a0533 100%);
+    padding: 28px 20px 16px;
+    border-bottom: 1px solid #1e1e3a;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .header-subtitle { font-size: 11px; letter-spacing: 3px; color: #6060a0; text-transform: uppercase; margin-bottom: 4px; }
+  .header-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .progress-wrap { text-align: center; }
+  .progress-label { font-size: 10px; color: #6060a0; margin-top: 2px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 8px;
+    background: #0a0a1e; border-radius: 12px; padding: 4px;
+  }
+  .tab-btn {
+    flex: 1; border: none; border-radius: 9px; padding: 8px 4px;
+    background: transparent; cursor: pointer;
+    font-family: inherit; transition: all 0.2s;
+    font-size: 12px; font-weight: 600;
+  }
+  .tab-btn .tab-emoji { font-size: 16px; display: block; }
+  .tab-btn .tab-count { font-size: 10px; margin-top: 1px; display: block; }
+
+  /* Day selector */
+  .day-section { padding: 14px 20px 0; }
+  .day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .day-title { font-size: 12px; }
+  .cal-btn {
+    background: #1a1a35; border: 1px solid #2a2a45;
+    color: #8080b0; font-size: 11px; border-radius: 8px;
+    padding: 4px 10px; cursor: pointer; font-family: inherit;
+  }
+
+  /* Calendar */
+  .calendar {
+    background: #0d0d22; border-radius: 12px; padding: 12px;
+    margin-bottom: 14px; border: 1px solid #1a1a35;
+    display: none;
+  }
+  .calendar.open { display: block; }
+  .cal-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; }
+  .cal-day {
+    aspect-ratio: 1; border: none; border-radius: 6px;
+    background: #1a1a30; color: #404060;
+    font-size: 11px; cursor: pointer; font-family: inherit;
+    transition: all 0.15s; padding: 0;
+  }
+
+  /* Day nav */
+  .day-nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; }
+  .day-nav::-webkit-scrollbar { display: none; }
+  .day-nav-btn {
+    flex-shrink: 0; width: 48px; height: 48px;
+    border-radius: 12px; border: 1px solid #1e1e38;
+    background: #0d0d22; color: #303050;
+    font-size: 13px; cursor: pointer; font-family: inherit;
+    transition: all 0.2s; position: relative;
+  }
+  .day-nav-btn .check-mark {
+    position: absolute; top: 3px; right: 4px; font-size: 8px;
+  }
+
+  /* Form */
+  .form-section { padding: 16px 20px 0; }
+  .status-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .status-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: #1a1a30; border-radius: 10px; padding: 6px 12px;
+    border: 1px solid #2a2a40; font-size: 12px; color: #505070;
+    transition: all 0.2s;
+  }
+  .done-btn {
+    border: none; border-radius: 10px;
+    font-size: 12px; font-weight: 600; padding: 8px 16px;
+    cursor: pointer; transition: all 0.2s; font-family: inherit;
+  }
+
+  .field-card {
+    margin-bottom: 14px; background: #0d0d20;
+    border-radius: 14px; border: 1px solid #1a1a30;
+    overflow: hidden; transition: border-color 0.2s;
+  }
+  .field-label {
+    padding: 10px 14px 8px; font-size: 12px; font-weight: 600;
+    color: #505075; border-bottom: 1px solid #1a1a2e;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .field-num {
+    width: 18px; height: 18px; border-radius: 5px;
+    background: #1a1a30; display: inline-flex;
+    align-items: center; justify-content: center; font-size: 10px;
+    flex-shrink: 0;
+  }
+  .field-textarea {
+    width: 100%; border: none; outline: none;
+    background: transparent; color: #c0c0e0;
+    font-size: 13px; line-height: 1.7; padding: 10px 14px;
+    resize: none; font-family: inherit;
+  }
+  .field-textarea::placeholder { color: #303050; }
+
+  /* Summary */
+  .summary {
+    background: linear-gradient(135deg, #0d0d25, #180820);
+    border-radius: 14px; padding: 16px; margin-bottom: 20px;
+    border: 1px solid #2a1a3e;
+  }
+  .summary-title { font-size: 11px; color: #505080; margin-bottom: 10px; letter-spacing: 2px; }
+  .summary-rings { display: flex; gap: 12px; justify-content: space-around; }
+  .summary-item { text-align: center; }
+  .summary-name { font-size: 10px; margin-top: 4px; }
+  .summary-count { font-size: 11px; color: #606090; }
+
+  svg.ring { transform: rotate(-90deg); display: block; margin: 0 auto; }
+
+  /* Transcript card */
+  .transcript-card {
+    background: #0a0f1e; border-radius: 14px;
+    border: 1px solid #1a1a30; margin-bottom: 14px;
+    overflow: hidden; transition: border-color 0.2s;
+  }
+  .transcript-header {
+    padding: 10px 14px; font-size: 12px; font-weight: 600;
+    color: #505075; display: flex; align-items: center;
+    justify-content: space-between; cursor: pointer;
+    user-select: none; transition: color 0.2s;
+  }
+  .transcript-header-left { display: flex; align-items: center; gap: 6px; }
+  .transcript-toggle-btn {
+    background: #1a1a35; border: 1px solid #2a2a45;
+    color: #7070a0; font-size: 11px; border-radius: 7px;
+    padding: 3px 9px; cursor: pointer; font-family: inherit;
+    flex-shrink: 0; transition: all 0.2s;
+  }
+  .transcript-body { display: none; border-top: 1px solid #1a1a2e; }
+  .transcript-body.open { display: block; }
+  .transcript-tools {
+    display: flex; gap: 6px; padding: 10px 14px 6px;
+    flex-wrap: wrap; align-items: center;
+  }
+  .transcript-hint {
+    font-size: 11px; color: #404060; flex: 1; min-width: 100px;
+  }
+  .transcript-action-btn {
+    background: #1a1a35; border: 1px solid #2a2a45;
+    color: #8080b0; font-size: 11px; border-radius: 7px;
+    padding: 4px 10px; cursor: pointer; font-family: inherit;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .transcript-action-btn:hover { background: #252545; color: #b0b0d0; }
+  .transcript-action-btn.active { background: #2a1a45; color: #c0a0ff; border-color: #5030a0; }
+  .transcript-textarea {
+    width: 100%; border: none; outline: none;
+    background: transparent; color: #b0b8d0;
+    font-size: 13px; line-height: 1.9; padding: 8px 14px 14px;
+    resize: none; font-family: inherit; min-height: 120px;
+  }
+  .transcript-textarea::placeholder { color: #252535; }
+
+  /* Split view (文案+笔记 左右对照，横屏或大屏) */
+  .split-view-btn {
+    position: fixed; bottom: 24px; right: 20px; z-index: 100;
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, #2a1050, #1a1a40);
+    border: 1px solid #4a2080; color: #c090ff;
+    font-size: 18px; cursor: pointer;
+    box-shadow: 0 4px 20px #0008;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .split-view-btn:hover { transform: scale(1.08); box-shadow: 0 6px 24px #0009; }
+
+  /* Highlight mode: sentences get highlight spans */
+  .transcript-display {
+    padding: 10px 14px 14px; font-size: 13px; line-height: 2;
+    color: #b0b8d0; display: none; white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .transcript-display.show { display: block; }
+  .hl-sentence {
+    border-radius: 4px; cursor: pointer; padding: 1px 2px;
+    transition: background 0.15s;
+  }
+  .hl-sentence:hover { background: #ffffff18; }
+  .hl-sentence.hl-hook   { background: #FF6B3530; border-bottom: 2px solid #FF6B35; }
+  .hl-sentence.hl-rhythm { background: #7B2FBE30; border-bottom: 2px solid #7B2FBE; }
+  .hl-sentence.hl-emotion{ background: #00B4D830; border-bottom: 2px solid #00B4D8; }
+  .hl-sentence.hl-key    { background: #FFD70030; border-bottom: 2px solid #FFD700; }
+
+  .hl-toolbar {
+    display: none; gap: 6px; padding: 8px 14px;
+    border-top: 1px solid #1a1a2e; flex-wrap: wrap;
+  }
+  .hl-toolbar.show { display: flex; }
+  .hl-tag-btn {
+    font-size: 11px; border: none; border-radius: 6px;
+    padding: 4px 10px; cursor: pointer; font-family: inherit;
+    font-weight: 600; transition: all 0.15s;
+  }
+  .hl-count-badge {
+    display: inline-block; font-size: 9px; border-radius: 10px;
+    padding: 1px 5px; margin-left: 4px; vertical-align: middle;
+  }
+
+  /* Video card */
+  .video-card {
+    background: #0d0d20; border-radius: 14px;
+    border: 1px solid #1a1a30; overflow: hidden;
+    margin-bottom: 14px; transition: border-color 0.2s;
+  }
+  .video-card-header {
+    padding: 10px 14px 8px; font-size: 12px; font-weight: 600;
+    color: #505075; border-bottom: 1px solid #1a1a2e;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .video-title-input {
+    width: 100%; border: none; outline: none;
+    background: transparent; color: #c0c0e0;
+    font-size: 13px; line-height: 1.7; padding: 10px 14px 6px;
+    font-family: inherit;
+  }
+  .video-title-input::placeholder { color: #303050; }
+  .video-url-row {
+    display: flex; align-items: center; gap: 0;
+    border-top: 1px solid #1a1a2e; padding: 0 14px;
+  }
+  .video-url-icon { font-size: 13px; color: #404060; flex-shrink: 0; }
+  .video-url-input {
+    flex: 1; border: none; outline: none;
+    background: transparent; color: #7070b0;
+    font-size: 12px; padding: 8px 8px;
+    font-family: inherit;
+  }
+  .video-url-input::placeholder { color: #303050; }
+  .video-open-btn {
+    background: #1a1a35; border: 1px solid #2a2a45;
+    color: #8080b0; font-size: 11px; border-radius: 7px;
+    padding: 4px 9px; cursor: pointer; font-family: inherit;
+    flex-shrink: 0; text-decoration: none; display: inline-block;
+    transition: all 0.2s;
+  }
+  .video-open-btn:hover { background: #252545; color: #a0a0d0; }
+  .video-preview {
+    margin: 0 14px 12px; border-radius: 10px; overflow: hidden;
+    background: #1a1a2e; display: none;
+  }
+  .video-preview.show { display: block; }
+  .video-preview iframe {
+    width: 100%; aspect-ratio: 16/9; border: none; display: block;
+  }
+  .video-preview-placeholder {
+    padding: 12px; text-align: center; color: #404060; font-size: 12px;
+  }
+  .platform-tag {
+    display: inline-block; font-size: 10px; padding: 2px 7px;
+    border-radius: 5px; margin-left: 6px; vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <div class="header-subtitle">短视频创作训练营</div>
+      <div class="header-title">30天感知训练</div>
+    </div>
+    <div class="progress-wrap">
+      <svg class="ring" id="total-ring" width="52" height="52">
+        <circle cx="26" cy="26" r="23" fill="none" stroke="#1a1a2e" stroke-width="5"/>
+        <circle id="total-arc" cx="26" cy="26" r="23" fill="none" stroke="#FFD700" stroke-width="5"
+          stroke-dasharray="144.51" stroke-dashoffset="144.51" stroke-linecap="round"
+          style="transition:stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1)"/>
+      </svg>
+      <div class="progress-label" id="total-label">0/90</div>
+    </div>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<div class="day-section">
+  <div class="day-header">
+    <div class="day-title" id="day-title"></div>
+    <button class="cal-btn" onclick="toggleCalendar()">日历 ▾</button>
+  </div>
+  <div class="calendar" id="calendar">
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+  <div class="day-nav" id="day-nav"></div>
+</div>
+
+<div class="form-section">
+  <div class="status-bar">
+    <div class="status-badge" id="status-badge">
+      <span id="status-icon">⭕</span>
+      <span id="status-text">记录今日训练</span>
+    </div>
+    <button class="done-btn" id="done-btn" onclick="toggleDone()">标记完成</button>
+  </div>
+  <div id="video-card-container"></div>
+  <div id="transcript-container"></div>
+  <div id="fields-container"></div>
+  <div class="summary">
+    <div class="summary-title">训练进度总览</div>
+    <div class="summary-rings" id="summary-rings"></div>
+  </div>
+</div>
+
+<script>
+// Video card
+function detectPlatform(url) {
+  if (!url) return null;
+  if (/youtu\.be|youtube\.com/.test(url)) return "youtube";
+  if (/bilibili\.com/.test(url)) return "bilibili";
+  if (/douyin\.com/.test(url)) return "douyin";
+  if (/kuaishou\.com/.test(url)) return "kuaishou";
+  if (/xiaohongshu\.com|xhslink\.com/.test(url)) return "xiaohongshu";
+  if (/v\.qq\.com/.test(url)) return "tencent";
+  return "other";
+}
+
+function getEmbedUrl(url, platform) {
+  if (platform === "youtube") {
+    const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    if (m) return `https://www.youtube.com/embed/${m[1]}`;
+  }
+  if (platform === "bilibili") {
+    const m = url.match(/BV([A-Za-z0-9]+)/);
+    if (m) return `https://player.bilibili.com/player.html?bvid=BV${m[1]}&high_quality=1`;
+  }
+  return null;
+}
+
+const PLATFORM_LABELS = {
+  youtube: { name: "YouTube", color: "#FF0000", bg: "#FF000022" },
+  bilibili: { name: "B站", color: "#00AEEC", bg: "#00AEEC22" },
+  douyin: { name: "抖音", color: "#FF2C54", bg: "#FF2C5422" },
+  kuaishou: { name: "快手", color: "#FF6A00", bg: "#FF6A0022" },
+  xiaohongshu: { name: "小红书", color: "#FF2442", bg: "#FF244222" },
+  tencent: { name: "腾讯视频", color: "#1DB954", bg: "#1DB95422" },
+  other: { name: "链接", color: "#8080b0", bg: "#8080b022" },
+};
+
+function setVideoField(key, val) {
+  if (!data._video) data._video = {};
+  const k = `${activeTab}_${activeDay}_${key}`;
+  data._video[k] = val;
+  save();
+  if (key === "url") refreshVideoPreview();
+  if (key === "title") refreshVideoTitle();
+}
+
+function getVideoField(key) {
+  return data._video?.[`${activeTab}_${activeDay}_${key}`] || "";
+}
+
+function refreshVideoTitle() {
+  const title = getVideoField("title");
+  const t = TABS.find(x => x.id === activeTab);
+  const header = document.getElementById("vc-header");
+  if (header) header.style.color = title ? t.color : "#505075";
+}
+
+function refreshVideoPreview() {
+  const url = getVideoField("url").trim();
+  const platform = detectPlatform(url);
+  const embedUrl = platform ? getEmbedUrl(url, platform) : null;
+  const preview = document.getElementById("vc-preview");
+  const openBtn = document.getElementById("vc-open");
+  const tag = document.getElementById("vc-platform-tag");
+
+  if (tag) {
+    if (platform && platform !== "other" && url) {
+      const p = PLATFORM_LABELS[platform];
+      tag.textContent = p.name;
+      tag.style.color = p.color;
+      tag.style.background = p.bg;
+      tag.style.display = "inline-block";
+    } else {
+      tag.style.display = "none";
+    }
+  }
+
+  if (openBtn) {
+    if (url) { openBtn.href = url; openBtn.style.display = "inline-block"; }
+    else { openBtn.style.display = "none"; }
+  }
+
+  if (preview) {
+    if (embedUrl) {
+      preview.classList.add("show");
+      preview.innerHTML = `<iframe src="${embedUrl}" allowfullscreen></iframe>`;
+    } else if (url) {
+      preview.classList.add("show");
+      preview.innerHTML = `<div class="video-preview-placeholder">📎 链接已保存 — 点右侧「打开」跳转查看<br><span style="color:#303050;font-size:11px">${url.length > 40 ? url.slice(0,40)+'…' : url}</span></div>`;
+    } else {
+      preview.classList.remove("show");
+      preview.innerHTML = "";
+    }
+  }
+}
+
+function renderVideoCard() {
+  const t = TABS.find(x => x.id === activeTab);
+  const title = getVideoField("title");
+  const url = getVideoField("url");
+  document.getElementById("video-card-container").innerHTML = `
+    <div class="video-card" style="border-color:${title||url ? t.color+'33' : '#1a1a30'}">
+      <div class="video-card-header" id="vc-header" style="color:${title ? t.color : '#505075'}">
+        <span style="width:18px;height:18px;border-radius:5px;background:${title ? t.color+'22':'#1a1a30'};
+          display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0">🎬</span>
+        今日分析视频
+        <span class="platform-tag" id="vc-platform-tag" style="display:none"></span>
+      </div>
+      <input class="video-title-input" type="text"
+        placeholder="视频标题（例：@xxx 这条讲减肥的视频…）"
+        value="${escHtml(title)}"
+        oninput="setVideoField('title',this.value)"
+      />
+      <div class="video-url-row">
+        <span class="video-url-icon">🔗</span>
+        <input class="video-url-input" type="url"
+          placeholder="粘贴视频链接（抖音/B站/YouTube…）"
+          value="${escHtml(url)}"
+          oninput="setVideoField('url',this.value)"
+        />
+        <a class="video-open-btn" id="vc-open" target="_blank" rel="noopener"
+          href="${escHtml(url)}" style="display:${url?'inline-block':'none'}">打开 ↗</a>
+      </div>
+      <div class="video-preview" id="vc-preview"></div>
+    </div>
+  `;
+  refreshVideoPreview();
+}
+
+function escHtml(s) {
+  return (s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ── Transcript ──────────────────────────────────────────────
+const HL_TYPES = [
+  { key: "hook",    label: "🎣 钩子",  color: "#FF6B35", cls: "hl-hook" },
+  { key: "rhythm",  label: "🎵 节奏",  color: "#7B2FBE", cls: "hl-rhythm" },
+  { key: "emotion", label: "💡 情绪",  color: "#00B4D8", cls: "hl-emotion" },
+  { key: "key",     label: "⭐ 关键",  color: "#FFD700", cls: "hl-key" },
+];
+
+let hlMode = false;
+let activeHlType = "hook";
+let selectedSentences = new Set(); // "sentIdx_hlType"
+
+function getTsKey() { return `${activeTab}_${activeDay}`; }
+
+function setTranscript(val) {
+  if (!data._ts) data._ts = {};
+  data._ts[getTsKey()] = { ...(data._ts[getTsKey()]||{}), text: val };
+  save();
+  refreshTranscriptDisplay();
+}
+
+function getTranscript() { return data._ts?.[getTsKey()]?.text || ""; }
+
+function getHls() { return data._ts?.[getTsKey()]?.hls || {}; }
+
+function toggleHl(sentIdx) {
+  if (!data._ts) data._ts = {};
+  const k = getTsKey();
+  if (!data._ts[k]) data._ts[k] = {};
+  if (!data._ts[k].hls) data._ts[k].hls = {};
+  const key = `${sentIdx}`;
+  if (data._ts[k].hls[key] === activeHlType) {
+    delete data._ts[k].hls[key]; // un-highlight
+  } else {
+    data._ts[k].hls[key] = activeHlType;
+  }
+  save();
+  refreshTranscriptDisplay();
+}
+
+function splitSentences(text) {
+  // split on Chinese/English sentence endings, keeping delimiter
+  return text.match(/[^。！？!?\n]+[。！？!?\n]?/g) || [text];
+}
+
+function refreshTranscriptDisplay() {
+  const text = getTranscript();
+  const hls = getHls();
+  const display = document.getElementById("ts-display");
+  const textarea = document.getElementById("ts-textarea");
+  if (!display) return;
+
+  if (hlMode && text) {
+    display.classList.add("show");
+    if (textarea) textarea.style.display = "none";
+    const sentences = splitSentences(text);
+    display.innerHTML = sentences.map((s, i) => {
+      const hlType = hls[`${i}`];
+      const hlDef = hlType ? HL_TYPES.find(h => h.key === hlType) : null;
+      const cls = hlDef ? ` ${hlDef.cls}` : "";
+      return `<span class="hl-sentence${cls}" onclick="toggleHl(${i})" title="点击标注">${escHtml(s)}</span>`;
+    }).join("");
+  } else {
+    display.classList.remove("show");
+    if (textarea) textarea.style.display = "";
+  }
+
+  // update hl counts on toolbar
+  HL_TYPES.forEach(h => {
+    const badge = document.getElementById(`hl-count-${h.key}`);
+    if (badge) {
+      const cnt = Object.values(hls).filter(v => v === h.key).length;
+      badge.textContent = cnt || "";
+      badge.style.display = cnt ? "inline-block" : "none";
+    }
+  });
+}
+
+function toggleHlMode() {
+  hlMode = !hlMode;
+  const btn = document.getElementById("ts-hl-btn");
+  const toolbar = document.getElementById("ts-hl-toolbar");
+  if (btn) {
+    btn.textContent = hlMode ? "✏️ 标注中" : "✏️ 标注";
+    btn.classList.toggle("active", hlMode);
+  }
+  if (toolbar) toolbar.classList.toggle("show", hlMode);
+  refreshTranscriptDisplay();
+}
+
+function setActiveHlType(key) {
+  activeHlType = key;
+  HL_TYPES.forEach(h => {
+    const btn = document.getElementById(`hlt-${h.key}`);
+    if (btn) {
+      btn.style.opacity = h.key === key ? "1" : "0.45";
+      btn.style.outline = h.key === key ? `2px solid ${h.color}` : "none";
+    }
+  });
+}
+
+function toggleTranscriptBody() {
+  const body = document.getElementById("ts-body");
+  const arrow = document.getElementById("ts-arrow");
+  if (!body) return;
+  body.classList.toggle("open");
+  if (arrow) arrow.textContent = body.classList.contains("open") ? "▴" : "▾";
+}
+
+function clearAllHighlights() {
+  if (!data._ts) return;
+  const k = getTsKey();
+  if (data._ts[k]) data._ts[k].hls = {};
+  save();
+  refreshTranscriptDisplay();
+}
+
+function renderTranscript() {
+  const t = TABS.find(x => x.id === activeTab);
+  const text = getTranscript();
+  const hls = getHls();
+  const hlCount = Object.keys(hls).length;
+  hlMode = false; // reset on re-render
+
+  document.getElementById("transcript-container").innerHTML = `
+    <div class="transcript-card" style="border-color:${text ? t.color+'33':'#1a1a30'}">
+      <div class="transcript-header" onclick="toggleTranscriptBody()">
+        <div class="transcript-header-left">
+          <span style="width:18px;height:18px;border-radius:5px;
+            background:${text?t.color+'22':'#1a1a30'};
+            display:inline-flex;align-items:center;justify-content:center;
+            font-size:12px;flex-shrink:0">📄</span>
+          <span style="color:${text?t.color:'#505075'}">视频文案</span>
+          ${text ? `<span style="font-size:10px;color:#505070;font-weight:400">${text.length}字${hlCount?` · <span style="color:#FFD700">${hlCount}处标注</span>`:''}</span>` : '<span style="font-size:10px;color:#303050;font-weight:400">粘贴文案对照拆解</span>'}
+        </div>
+        <span id="ts-arrow" style="color:#404060;font-size:11px">▾</span>
+      </div>
+
+      <div class="transcript-body" id="ts-body">
+        <div class="transcript-tools">
+          <span class="transcript-hint">粘贴或输入视频完整文案</span>
+          <button class="transcript-action-btn" id="ts-hl-btn" onclick="event.stopPropagation();toggleHlMode()">✏️ 标注</button>
+          ${hlCount ? `<button class="transcript-action-btn" onclick="event.stopPropagation();clearAllHighlights()" style="color:#604060">🗑 清除</button>` : ''}
+        </div>
+
+        <div class="hl-toolbar" id="ts-hl-toolbar">
+          ${HL_TYPES.map(h => `
+            <button class="hl-tag-btn" id="hlt-${h.key}"
+              onclick="event.stopPropagation();setActiveHlType('${h.key}')"
+              style="background:${h.color}22;color:${h.color};opacity:${h.key===activeHlType?'1':'0.45'};
+                     outline:${h.key===activeHlType?'2px solid '+h.color:'none'}">
+              ${h.label}
+              <span class="hl-count-badge" id="hl-count-${h.key}"
+                style="background:${h.color}33;color:${h.color};display:none"></span>
+            </button>
+          `).join('')}
+          <span style="font-size:11px;color:#404060;margin-left:4px">← 选颜色，点句子标注</span>
+        </div>
+
+        <textarea class="transcript-textarea" id="ts-textarea" rows="6"
+          placeholder="把视频字幕/文案粘贴到这里…&#10;&#10;然后点「✏️ 标注」，选颜色，点击句子标记钩子/节奏/情绪/关键句，对照训练记录一起拆解。"
+          oninput="setTranscript(this.value)"
+        >${escHtml(text)}</textarea>
+
+        <div class="transcript-display" id="ts-display"></div>
+      </div>
+    </div>
+  `;
+
+  // restore hl counts
+  refreshTranscriptDisplay();
+}
+
+// ── End Transcript ────────────────────────────────────────────
+
+const TABS = [
+  { id: "sensitivity", label: "敏感度", emoji: "🎣", color: "#FF6B35" },
+  { id: "rhythm",      label: "节奏感", emoji: "🎵", color: "#7B2FBE" },
+  { id: "empathy",     label: "共情力", emoji: "💡", color: "#00B4D8" },
+];
+const FIELDS = {
+  sensitivity: [
+    { key: "hook",        label: "🎣 钩子分析",  placeholder: "开头3秒用了什么让你想看下去？反差？悬念？冲突？" },
+    { key: "interaction", label: "💬 互动点",    placeholder: "视频埋了什么让你想评论？问题？争议？共鸣？" },
+    { key: "analysis",   label: "🧠 结构拆解",  placeholder: "开头放了什么钩子 → 中间几个情绪点 → 结尾怎么收尾" },
+  ],
+  rhythm: [
+    { key: "guess",   label: "🔇 猜测（关声音）", placeholder: "根据画面猜：每帧说了什么？停顿在哪？转折点在哪？" },
+    { key: "actual",  label: "🔊 实际（听原声）", placeholder: "猜对了什么？哪里快哪里慢？抛包袱在哪？留白在哪？" },
+    { key: "insight", label: "✨ 节奏洞察",       placeholder: "这条视频节奏感的核心秘诀是什么？" },
+  ],
+  empathy: [
+    { key: "emotion",    label: "😮 情绪旅程",  placeholder: "观众经历了哪些心理变化？开始→中间→结尾" },
+    { key: "painpoint",  label: "💔 痛点/期待",  placeholder: "戳中了什么痛点？还是满足了某个期待？" },
+    { key: "gain",       label: "🎁 用户收获",  placeholder: "这个视频，观众看完能得到什么？" },
+  ],
+};
+
+let activeTab = "sensitivity";
+let activeDay = 1;
+let data = {};
+
+function load() {
+  try { data = JSON.parse(localStorage.getItem("vtt_v3") || "{}"); } catch { data = {}; }
+}
+function save() {
+  try { localStorage.setItem("vtt_v3", JSON.stringify(data)); } catch {}
+}
+function getEntry(tab, day) {
+  return data[tab]?.[day] || { done: false };
+}
+function setField(tab, day, key, val) {
+  if (!data[tab]) data[tab] = {};
+  if (!data[tab][day]) data[tab][day] = {};
+  data[tab][day][key] = val;
+  save();
+  updateFieldCard(key);
+  updateHeader();
+}
+function toggleDone() {
+  if (!data[activeTab]) data[activeTab] = {};
+  if (!data[activeTab][activeDay]) data[activeTab][activeDay] = {};
+  data[activeTab][activeDay].done = !data[activeTab][activeDay].done;
+  save();
+  renderStatusBar();
+  renderDayNav();
+  renderCalendar();
+  updateHeader();
+}
+function toggleCalendar() {
+  const cal = document.getElementById("calendar");
+  cal.classList.toggle("open");
+  document.querySelector(".cal-btn").textContent = cal.classList.contains("open") ? "收起 ▴" : "日历 ▾";
+}
+function countDone(tab) {
+  if (!data[tab]) return 0;
+  return Object.values(data[tab]).filter(e => e.done).length;
+}
+
+// Ring helpers
+function arcOffset(val, max, r) {
+  const circ = 2 * Math.PI * r;
+  return circ * (1 - (max > 0 ? val / max : 0));
+}
+
+function updateHeader() {
+  const total = TABS.reduce((s, t) => s + countDone(t.id), 0);
+  const circ = 2 * Math.PI * 23;
+  document.getElementById("total-arc").style.strokeDashoffset = circ * (1 - total / 90);
+  document.getElementById("total-label").textContent = total + "/90";
+  // summary rings
+  TABS.forEach(t => {
+    const done = countDone(t.id);
+    const arc = document.getElementById("sum-arc-" + t.id);
+    if (arc) arc.style.strokeDashoffset = arcOffset(done, 30, 19);
+    const cnt = document.getElementById("sum-cnt-" + t.id);
+    if (cnt) cnt.textContent = done + "/30";
+  });
+  // tab counts
+  TABS.forEach(t => {
+    const el = document.getElementById("tab-count-" + t.id);
+    if (el) el.textContent = countDone(t.id) + "/30";
+  });
+}
+
+function renderTabs() {
+  const container = document.getElementById("tabs");
+  container.innerHTML = TABS.map(t => `
+    <button class="tab-btn" id="tab-${t.id}" onclick="switchTab('${t.id}')"
+      style="color:${activeTab===t.id ? t.color : '#505070'};
+             background:${activeTab===t.id ? t.color+'22' : 'transparent'};
+             outline:${activeTab===t.id ? '1px solid '+t.color+'44' : 'none'}">
+      <span class="tab-emoji">${t.emoji}</span>
+      ${t.label}
+      <span class="tab-count" id="tab-count-${t.id}" style="color:${activeTab===t.id ? t.color+'aa' : '#333355'}">${countDone(t.id)}/30</span>
+    </button>
+  `).join("");
+}
+
+function switchTab(tabId) {
+  activeTab = tabId;
+  renderTabs();
+  renderDayTitle();
+  renderCalendar();
+  renderDayNav();
+  renderStatusBar();
+  renderVideoCard();
+  renderTranscript();
+  renderFields();
+  updateHeader();
+}
+
+function renderDayTitle() {
+  const t = TABS.find(x => x.id === activeTab);
+  document.getElementById("day-title").innerHTML =
+    `<span style="color:${t.color};font-weight:700">第 ${activeDay} 天</span>
+     <span style="color:#404060;margin-left:8px">${t.emoji} ${t.label}训练</span>`;
+}
+
+function renderCalendar() {
+  const t = TABS.find(x => x.id === activeTab);
+  const grid = document.getElementById("cal-grid");
+  grid.innerHTML = Array.from({length:30},(_,i)=>i+1).map(d => {
+    const done = data[activeTab]?.[d]?.done;
+    const isActive = d === activeDay;
+    return `<button class="cal-day" onclick="selectDay(${d})"
+      style="background:${isActive ? t.color : done ? t.color+'33' : '#1a1a30'};
+             color:${isActive ? '#fff' : done ? t.color : '#404060'};
+             font-weight:${isActive ? 700 : 400}">${d}</button>`;
+  }).join("");
+}
+
+function renderDayNav() {
+  const t = TABS.find(x => x.id === activeTab);
+  const days = [activeDay-2,activeDay-1,activeDay,activeDay+1,activeDay+2].filter(d=>d>=1&&d<=30);
+  document.getElementById("day-nav").innerHTML = days.map(d => {
+    const done = data[activeTab]?.[d]?.done;
+    const isActive = d === activeDay;
+    return `<button class="day-nav-btn" onclick="selectDay(${d})"
+      style="border:${isActive ? '2px solid '+t.color : '1px solid #1e1e38'};
+             background:${isActive ? t.color+'15' : '#0d0d22'};
+             color:${isActive ? t.color : done ? '#606090' : '#303050'};
+             font-weight:${isActive ? 700 : 400}">
+      ${d}${done ? `<span class="check-mark" style="color:${t.color}">✓</span>` : ''}
+    </button>`;
+  }).join("");
+}
+
+function selectDay(d) {
+  activeDay = d;
+  renderDayTitle();
+  renderCalendar();
+  renderDayNav();
+  renderStatusBar();
+  renderVideoCard();
+  renderTranscript();
+  renderFields();
+  document.getElementById("calendar").classList.remove("open");
+  document.querySelector(".cal-btn").textContent = "日历 ▾";
+}
+
+function renderStatusBar() {
+  const t = TABS.find(x => x.id === activeTab);
+  const done = data[activeTab]?.[activeDay]?.done;
+  const badge = document.getElementById("status-badge");
+  badge.style.background = done ? t.color+"22" : "#1a1a30";
+  badge.style.border = `1px solid ${done ? t.color+"44" : "#2a2a40"}`;
+  badge.style.color = done ? t.color : "#505070";
+  document.getElementById("status-icon").textContent = done ? "✅" : "⭕";
+  document.getElementById("status-text").textContent = done ? "今日已完成" : "记录今日训练";
+  const btn = document.getElementById("done-btn");
+  btn.style.background = done ? "#1a1a30" : t.color;
+  btn.style.color = done ? "#606090" : "#fff";
+  btn.textContent = done ? "取消完成" : "标记完成";
+}
+
+function renderFields() {
+  const t = TABS.find(x => x.id === activeTab);
+  const entry = getEntry(activeTab, activeDay);
+  const fields = FIELDS[activeTab];
+  document.getElementById("fields-container").innerHTML = fields.map((f,i) => `
+    <div class="field-card" id="card-${f.key}"
+      style="border:1px solid ${entry[f.key] ? t.color+'33' : '#1a1a30'}">
+      <div class="field-label" id="label-${f.key}"
+        style="color:${entry[f.key] ? t.color : '#505075'}">
+        <span class="field-num" id="num-${f.key}"
+          style="background:${entry[f.key] ? t.color+'22' : '#1a1a30'};color:${t.color}">${i+1}</span>
+        ${f.label}
+      </div>
+      <textarea class="field-textarea" rows="3"
+        placeholder="${f.placeholder}"
+        onchange="setField('${activeTab}',${activeDay},'${f.key}',this.value)"
+        oninput="setField('${activeTab}',${activeDay},'${f.key}',this.value)"
+      >${entry[f.key]||""}</textarea>
+    </div>
+  `).join("");
+}
+
+function updateFieldCard(key) {
+  const t = TABS.find(x => x.id === activeTab);
+  const entry = getEntry(activeTab, activeDay);
+  const val = entry[key];
+  const card = document.getElementById("card-"+key);
+  const label = document.getElementById("label-"+key);
+  const num = document.getElementById("num-"+key);
+  if (card) card.style.border = `1px solid ${val ? t.color+'33' : '#1a1a30'}`;
+  if (label) label.style.color = val ? t.color : '#505075';
+  if (num) num.style.background = val ? t.color+'22' : '#1a1a30';
+}
+
+function renderSummary() {
+  document.getElementById("summary-rings").innerHTML = TABS.map(t => {
+    const done = countDone(t.id);
+    const circ = 2 * Math.PI * 19;
+    return `
+    <div class="summary-item">
+      <svg class="ring" width="48" height="48">
+        <circle cx="24" cy="24" r="19" fill="none" stroke="#1a1a2e" stroke-width="5"/>
+        <circle id="sum-arc-${t.id}" cx="24" cy="24" r="19" fill="none" stroke="${t.color}" stroke-width="5"
+          stroke-dasharray="${circ.toFixed(2)}"
+          stroke-dashoffset="${(circ*(1-done/30)).toFixed(2)}"
+          stroke-linecap="round"
+          style="transition:stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1)"/>
+      </svg>
+      <div class="summary-name" style="color:${t.color}">${t.label}</div>
+      <div class="summary-count" id="sum-cnt-${t.id}">${done}<span style="color:#303050">/30</span></div>
+    </div>`;
+  }).join("");
+}
+
+// Init
+load();
+renderTabs();
+renderDayTitle();
+renderCalendar();
+renderDayNav();
+renderStatusBar();
+renderVideoCard();
+renderTranscript();
+renderFields();
+renderSummary();
+updateHeader();
+</script>
+</body>
+</html>
