@@ -312,7 +312,7 @@
 </div>
 
 <div class="form-section">
-  <div class="status-bar">
+  <div class="status-bar" id="status-bar">
     <div class="status-badge" id="status-badge">
       <span id="status-icon">⭕</span>
       <span id="status-text">记录今日训练</span>
@@ -638,6 +638,7 @@ const TABS = [
   { id: "sensitivity", label: "敏感度", emoji: "🎣", color: "#FF6B35" },
   { id: "rhythm",      label: "节奏感", emoji: "🎵", color: "#7B2FBE" },
   { id: "empathy",     label: "共情力", emoji: "💡", color: "#00B4D8" },
+  { id: "analysis",    label: "视频分析", emoji: "🎬", color: "#E8B84B" },
 ];
 const FIELDS = {
   sensitivity: [
@@ -654,6 +655,15 @@ const FIELDS = {
     { key: "emotion",    label: "😮 情绪旅程",  placeholder: "观众经历了哪些心理变化？开始→中间→结尾" },
     { key: "painpoint",  label: "💔 痛点/期待",  placeholder: "戳中了什么痛点？还是满足了某个期待？" },
     { key: "gain",       label: "🎁 用户收获",  placeholder: "这个视频，观众看完能得到什么？" },
+  ],
+  analysis: [
+    { key: "content_type", label: "📂 内容类型",   placeholder: "例：知识干货 / 情感共鸣 / 娱乐搞笑 / 产品种草…" },
+    { key: "viral",        label: "🔥 爆款元素",   placeholder: "这条视频爆的核心元素是什么？" },
+    { key: "audience",     label: "👥 目标人群",   placeholder: "谁在看这条视频？年龄/职业/痛点是什么？" },
+    { key: "ip",           label: "💎 主题策划IP", placeholder: "这个账号的IP定位是什么？有没有系列感？" },
+    { key: "skill",        label: "🛠 技巧",        placeholder: "用了哪些拍摄/剪辑/表达技巧？" },
+    { key: "direction",    label: "🧭 方向",        placeholder: "内容方向是什么？垂类赛道？创作风格？" },
+    { key: "scene",        label: "🏠 置景",        placeholder: "场景是怎么布置的？光线/背景/道具有什么讲究？" },
   ],
 };
 
@@ -705,10 +715,12 @@ function arcOffset(val, max, r) {
 }
 
 function updateHeader() {
-  const total = TABS.reduce((s, t) => s + countDone(t.id), 0);
+  const trainTabs = TABS.filter(t => t.id !== "analysis");
+  const total = trainTabs.reduce((s, t) => s + countDone(t.id), 0);
+  const maxTotal = trainTabs.length * 30;
   const circ = 2 * Math.PI * 23;
-  document.getElementById("total-arc").style.strokeDashoffset = circ * (1 - total / 90);
-  document.getElementById("total-label").textContent = total + "/90";
+  document.getElementById("total-arc").style.strokeDashoffset = circ * (1 - total / maxTotal);
+  document.getElementById("total-label").textContent = total + "/" + maxTotal;
   // summary rings
   TABS.forEach(t => {
     const done = countDone(t.id);
@@ -720,22 +732,85 @@ function updateHeader() {
   // tab counts
   TABS.forEach(t => {
     const el = document.getElementById("tab-count-" + t.id);
-    if (el) el.textContent = countDone(t.id) + "/30";
+    if (el) {
+      if (t.id === "analysis") {
+        const filled = getAnalysisFilled();
+        el.textContent = filled > 0 ? filled + "项" : "";
+      } else {
+        el.textContent = countDone(t.id) + "/30";
+      }
+    }
   });
+}
+
+function getAnalysisFilled() {
+  const fields = FIELDS.analysis;
+  return fields.filter(f => data.analysis?.[activeDay]?.[f.key]).length;
 }
 
 function renderTabs() {
   const container = document.getElementById("tabs");
-  container.innerHTML = TABS.map(t => `
+  container.innerHTML = TABS.map(t => {
+    const isActive = activeTab === t.id;
+    let countText = "";
+    if (t.id === "analysis") {
+      // show nothing or filled count - handled in updateHeader
+    } else {
+      countText = countDone(t.id) + "/30";
+    }
+    return `
     <button class="tab-btn" id="tab-${t.id}" onclick="switchTab('${t.id}')"
-      style="color:${activeTab===t.id ? t.color : '#505070'};
-             background:${activeTab===t.id ? t.color+'22' : 'transparent'};
-             outline:${activeTab===t.id ? '1px solid '+t.color+'44' : 'none'}">
+      style="color:${isActive ? t.color : '#505070'};
+             background:${isActive ? t.color+'22' : 'transparent'};
+             outline:${isActive ? '1px solid '+t.color+'44' : 'none'}">
       <span class="tab-emoji">${t.emoji}</span>
       ${t.label}
-      <span class="tab-count" id="tab-count-${t.id}" style="color:${activeTab===t.id ? t.color+'aa' : '#333355'}">${countDone(t.id)}/30</span>
-    </button>
-  `).join("");
+      <span class="tab-count" id="tab-count-${t.id}"
+        style="color:${isActive ? t.color+'aa' : '#333355'}">${countText}</span>
+    </button>`;
+  }).join("");
+}
+
+function renderAnalysisFields() {
+  const t = TABS.find(x => x.id === "analysis");
+  const fields = FIELDS.analysis;
+  const entry = data.analysis?.[activeDay] || {};
+
+  document.getElementById("fields-container").innerHTML = `
+    <div style="font-size:11px;color:#505070;margin-bottom:12px;letter-spacing:1px;">
+      每天分析一条视频时填写，记录一次即可，不需要每个训练模块重复填。
+    </div>
+    ${fields.map((f, i) => `
+      <div class="field-card" id="card-${f.key}"
+        style="border:1px solid ${entry[f.key] ? t.color+'33' : '#1a1a30'}">
+        <div class="field-label" id="label-${f.key}"
+          style="color:${entry[f.key] ? t.color : '#505075'}">
+          <span class="field-num" id="num-${f.key}"
+            style="background:${entry[f.key] ? t.color+'22' : '#1a1a30'};color:${t.color}">${i+1}</span>
+          ${f.label}
+        </div>
+        <textarea class="field-textarea" rows="2"
+          placeholder="${f.placeholder}"
+          oninput="setAnalysisField('${f.key}', this.value)"
+        >${escHtml(entry[f.key]||"")}</textarea>
+      </div>
+    `).join("")}
+  `;
+}
+
+function setAnalysisField(key, val) {
+  if (!data.analysis) data.analysis = {};
+  if (!data.analysis[activeDay]) data.analysis[activeDay] = {};
+  data.analysis[activeDay][key] = val;
+  save();
+  const t = TABS.find(x => x.id === "analysis");
+  const card = document.getElementById("card-"+key);
+  const label = document.getElementById("label-"+key);
+  const num = document.getElementById("num-"+key);
+  if (card) card.style.border = `1px solid ${val ? t.color+'33' : '#1a1a30'}`;
+  if (label) label.style.color = val ? t.color : '#505075';
+  if (num) num.style.background = val ? t.color+'22' : '#1a1a30';
+  updateHeader();
 }
 
 function switchTab(tabId) {
@@ -744,10 +819,16 @@ function switchTab(tabId) {
   renderDayTitle();
   renderCalendar();
   renderDayNav();
-  renderStatusBar();
+  const isAnalysis = tabId === "analysis";
+  document.getElementById("status-bar").style.display = isAnalysis ? "none" : "flex";
   renderVideoCard();
   renderTranscript();
-  renderFields();
+  if (isAnalysis) {
+    renderAnalysisFields();
+  } else {
+    renderStatusBar();
+    renderFields();
+  }
   updateHeader();
 }
 
@@ -792,10 +873,16 @@ function selectDay(d) {
   renderDayTitle();
   renderCalendar();
   renderDayNav();
-  renderStatusBar();
+  const isAnalysis = activeTab === "analysis";
+  document.getElementById("status-bar").style.display = isAnalysis ? "none" : "flex";
   renderVideoCard();
   renderTranscript();
-  renderFields();
+  if (isAnalysis) {
+    renderAnalysisFields();
+  } else {
+    renderStatusBar();
+    renderFields();
+  }
   document.getElementById("calendar").classList.remove("open");
   document.querySelector(".cal-btn").textContent = "日历 ▾";
 }
@@ -850,7 +937,8 @@ function updateFieldCard(key) {
 }
 
 function renderSummary() {
-  document.getElementById("summary-rings").innerHTML = TABS.map(t => {
+  const trainTabs = TABS.filter(t => t.id !== "analysis");
+  document.getElementById("summary-rings").innerHTML = trainTabs.map(t => {
     const done = countDone(t.id);
     const circ = 2 * Math.PI * 19;
     return `
