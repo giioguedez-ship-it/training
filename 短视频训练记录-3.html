@@ -365,7 +365,7 @@ const PLATFORM_LABELS = {
 
 function setVideoField(key, val) {
   if (!data._video) data._video = {};
-  const k = `${activeTab}_${activeDay}_${key}`;
+  const k = `day_${activeDay}_${key}`;
   data._video[k] = val;
   save();
   if (key === "url") refreshVideoPreview();
@@ -373,7 +373,7 @@ function setVideoField(key, val) {
 }
 
 function getVideoField(key) {
-  return data._video?.[`${activeTab}_${activeDay}_${key}`] || "";
+  return data._video?.[`day_${activeDay}_${key}`] || "";
 }
 
 function refreshVideoTitle() {
@@ -446,8 +446,9 @@ function renderVideoCard() {
           value="${escHtml(url)}"
           oninput="setVideoField('url',this.value)"
         />
-        <a class="video-open-btn" id="vc-open" target="_blank" rel="noopener"
-          href="${escHtml(url)}" style="display:${url?'inline-block':'none'}">打开 ↗</a>
+        <button class="video-open-btn" id="vc-open"
+          onclick="openVideoLink()"
+          style="display:${url?'inline-block':'none'}">打开 ↗</button>
       </div>
       <div class="video-preview" id="vc-preview"></div>
     </div>
@@ -457,6 +458,11 @@ function renderVideoCard() {
 
 function escHtml(s) {
   return (s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function openVideoLink() {
+  const url = getVideoField("url").trim();
+  if (url) window.open(url, "_blank");
 }
 
 // ── Transcript ──────────────────────────────────────────────
@@ -471,7 +477,7 @@ let hlMode = false;
 let activeHlType = "hook";
 let selectedSentences = new Set(); // "sentIdx_hlType"
 
-function getTsKey() { return `${activeTab}_${activeDay}`; }
+function getTsKey() { return `day_${activeDay}`; }
 
 function setTranscript(val) {
   if (!data._ts) data._ts = {};
@@ -635,10 +641,10 @@ function renderTranscript() {
 // ── End Transcript ────────────────────────────────────────────
 
 const TABS = [
-  { id: "sensitivity", label: "敏感度", emoji: "🎣", color: "#FF6B35" },
-  { id: "rhythm",      label: "节奏感", emoji: "🎵", color: "#7B2FBE" },
-  { id: "empathy",     label: "共情力", emoji: "💡", color: "#00B4D8" },
   { id: "analysis",    label: "视频分析", emoji: "🎬", color: "#E8B84B" },
+  { id: "sensitivity", label: "敏感度",   emoji: "🎣", color: "#FF6B35" },
+  { id: "rhythm",      label: "节奏感",   emoji: "🎵", color: "#7B2FBE" },
+  { id: "empathy",     label: "共情力",   emoji: "💡", color: "#00B4D8" },
 ];
 const FIELDS = {
   sensitivity: [
@@ -667,7 +673,7 @@ const FIELDS = {
   ],
 };
 
-let activeTab = "sensitivity";
+let activeTab = "analysis";
 let activeDay = 1;
 let data = {};
 
@@ -717,17 +723,18 @@ function arcOffset(val, max, r) {
 function updateHeader() {
   const trainTabs = TABS.filter(t => t.id !== "analysis");
   const total = trainTabs.reduce((s, t) => s + countDone(t.id), 0);
-  const maxTotal = trainTabs.length * 30;
   const circ = 2 * Math.PI * 23;
-  document.getElementById("total-arc").style.strokeDashoffset = circ * (1 - total / maxTotal);
-  document.getElementById("total-label").textContent = total + "/" + maxTotal;
+  // ring shows progress as ratio of done vs (activeDay * 3) as a soft target
+  const softMax = Math.max(activeDay * trainTabs.length, total, 1);
+  document.getElementById("total-arc").style.strokeDashoffset = circ * (1 - Math.min(total / softMax, 1));
+  document.getElementById("total-label").textContent = total + "天";
   // summary rings
-  TABS.forEach(t => {
+  trainTabs.forEach(t => {
     const done = countDone(t.id);
     const arc = document.getElementById("sum-arc-" + t.id);
-    if (arc) arc.style.strokeDashoffset = arcOffset(done, 30, 19);
+    if (arc) arc.style.strokeDashoffset = arcOffset(done, Math.max(done, activeDay, 1), 19);
     const cnt = document.getElementById("sum-cnt-" + t.id);
-    if (cnt) cnt.textContent = done + "/30";
+    if (cnt) cnt.textContent = done + "天";
   });
   // tab counts
   TABS.forEach(t => {
@@ -737,7 +744,8 @@ function updateHeader() {
         const filled = getAnalysisFilled();
         el.textContent = filled > 0 ? filled + "项" : "";
       } else {
-        el.textContent = countDone(t.id) + "/30";
+        const done = countDone(t.id);
+        el.textContent = done > 0 ? done + "天✓" : "";
       }
     }
   });
@@ -839,10 +847,26 @@ function renderDayTitle() {
      <span style="color:#404060;margin-left:8px">${t.emoji} ${t.label}训练</span>`;
 }
 
+function getMaxDay() {
+  // find highest day with any data across all tabs, minimum 30
+  let max = 30;
+  ["sensitivity","rhythm","empathy","analysis"].forEach(tab => {
+    if (data[tab]) Object.keys(data[tab]).forEach(d => { if (+d > max) max = +d; });
+  });
+  if (data._video) Object.keys(data._video).forEach(k => {
+    const m = k.match(/^day_(\d+)_/); if (m && +m[1] > max) max = +m[1];
+  });
+  if (data._ts) Object.keys(data._ts).forEach(k => {
+    const m = k.match(/^day_(\d+)$/); if (m && +m[1] > max) max = +m[1];
+  });
+  return Math.max(max, activeDay + 2);
+}
+
 function renderCalendar() {
   const t = TABS.find(x => x.id === activeTab);
+  const maxDay = getMaxDay();
   const grid = document.getElementById("cal-grid");
-  grid.innerHTML = Array.from({length:30},(_,i)=>i+1).map(d => {
+  grid.innerHTML = Array.from({length: maxDay}, (_, i) => i + 1).map(d => {
     const done = data[activeTab]?.[d]?.done;
     const isActive = d === activeDay;
     return `<button class="cal-day" onclick="selectDay(${d})"
@@ -854,18 +878,27 @@ function renderCalendar() {
 
 function renderDayNav() {
   const t = TABS.find(x => x.id === activeTab);
-  const days = [activeDay-2,activeDay-1,activeDay,activeDay+1,activeDay+2].filter(d=>d>=1&&d<=30);
-  document.getElementById("day-nav").innerHTML = days.map(d => {
-    const done = data[activeTab]?.[d]?.done;
-    const isActive = d === activeDay;
-    return `<button class="day-nav-btn" onclick="selectDay(${d})"
-      style="border:${isActive ? '2px solid '+t.color : '1px solid #1e1e38'};
-             background:${isActive ? t.color+'15' : '#0d0d22'};
-             color:${isActive ? t.color : done ? '#606090' : '#303050'};
-             font-weight:${isActive ? 700 : 400}">
-      ${d}${done ? `<span class="check-mark" style="color:${t.color}">✓</span>` : ''}
-    </button>`;
-  }).join("");
+  const maxDay = getMaxDay();
+  // show a window of days around activeDay, always allow going to next new day
+  const start = Math.max(1, activeDay - 3);
+  const end = Math.min(maxDay, activeDay + 3);
+  const days = Array.from({length: end - start + 1}, (_, i) => start + i);
+  // always include a "+" button to add a new day
+  document.getElementById("day-nav").innerHTML =
+    days.map(d => {
+      const done = data[activeTab]?.[d]?.done;
+      const isActive = d === activeDay;
+      return `<button class="day-nav-btn" onclick="selectDay(${d})"
+        style="border:${isActive ? '2px solid '+t.color : '1px solid #1e1e38'};
+               background:${isActive ? t.color+'15' : '#0d0d22'};
+               color:${isActive ? t.color : done ? '#606090' : '#303050'};
+               font-weight:${isActive ? 700 : 400}">
+        ${d}${done ? `<span class="check-mark" style="color:${t.color}">✓</span>` : ''}
+      </button>`;
+    }).join("") +
+    `<button class="day-nav-btn" onclick="selectDay(${maxDay + 1})"
+      style="border:1px dashed #2a2a45;background:#0d0d22;color:#404060;font-size:18px;"
+      title="新增第${maxDay+1}天">+</button>`;
 }
 
 function selectDay(d) {
@@ -941,18 +974,19 @@ function renderSummary() {
   document.getElementById("summary-rings").innerHTML = trainTabs.map(t => {
     const done = countDone(t.id);
     const circ = 2 * Math.PI * 19;
+    const max = Math.max(done, activeDay, 1);
     return `
     <div class="summary-item">
       <svg class="ring" width="48" height="48">
         <circle cx="24" cy="24" r="19" fill="none" stroke="#1a1a2e" stroke-width="5"/>
         <circle id="sum-arc-${t.id}" cx="24" cy="24" r="19" fill="none" stroke="${t.color}" stroke-width="5"
           stroke-dasharray="${circ.toFixed(2)}"
-          stroke-dashoffset="${(circ*(1-done/30)).toFixed(2)}"
+          stroke-dashoffset="${(circ*(1-done/max)).toFixed(2)}"
           stroke-linecap="round"
           style="transition:stroke-dashoffset 0.6s cubic-bezier(0.4,0,0.2,1)"/>
       </svg>
       <div class="summary-name" style="color:${t.color}">${t.label}</div>
-      <div class="summary-count" id="sum-cnt-${t.id}">${done}<span style="color:#303050">/30</span></div>
+      <div class="summary-count" id="sum-cnt-${t.id}">${done}<span style="color:#303050">天</span></div>
     </div>`;
   }).join("");
 }
